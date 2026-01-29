@@ -24,14 +24,12 @@ app.use(express.json());
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://localhost:5174',
-  'http://localhost:3000',
-  "https://doctor-booking-frontend-h0oqtp2b6-abhinavs-projects-bedf9a15.vercel.app"
+  'https://doctor-booking-frontend-h0oqtp2b6-abhinavs-projects-bedf9a15.vercel.app'
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps) or if the origin is in our whitelist
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -39,6 +37,11 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// ADD THIS LINE: This handles the "OPTIONS" preflight check for all routes
+app.options(/(.*)/, cors());
+
+// ... rest of your code ...
 
 // 5. Security Middleware
 app.use(helmet({
