@@ -24,7 +24,8 @@ app.use(express.json());
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://localhost:5174',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  "https://doctor-booking-frontend-h0oqtp2b6-abhinavs-projects-bedf9a15.vercel.app"
 ];
 
 app.use(cors({
