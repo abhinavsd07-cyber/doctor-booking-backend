@@ -4,7 +4,8 @@ const connectCloudinary = async () => {
     cloudinary.config({
         cloud_name: process.env.CLOUDINARY_NAME,
         api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
+        // FIXED: Changed CLOUDINARY_API_SECRET to CLOUDINARY_SECRET_KEY
+        api_secret: process.env.CLOUDINARY_SECRET_KEY, 
     });
 };
 
