@@ -15,10 +15,12 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
+    pool: true, // Use pooled connections
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    }
+    },
+    connectionTimeout: 5000 // 5 seconds timeout
 });
 
 // --- HELPER FUNCTIONS ---
@@ -215,7 +217,7 @@ const bookAppointment = async (req, res) => {
         await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
         // Trigger Email Notification
-        await sendConfirmationEmail(userData, docData, slotDate, slotTime);
+         sendConfirmationEmail(userData, docData, slotDate, slotTime);
 
         res.json({ success: true, message: "Appointment Booked" });
 
