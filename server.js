@@ -36,8 +36,7 @@ app.use(cors({
 }));
 
 // ✅ FIX: Modern Express way to handle OPTIONS without crashing
-app.options('*', cors()); 
-
+app.options('/*', cors());
 // 5. Security Middleware
 app.use(helmet({
     contentSecurityPolicy: false, 
