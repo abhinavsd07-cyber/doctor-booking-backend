@@ -16,7 +16,7 @@ connectCloudinary();
 
 app.use(express.json());
 
-// 4. Corrected CORS Configuration
+// 4. Clean CORS Configuration
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://localhost:5174',
@@ -24,6 +24,7 @@ const allowedOrigins = [
   'https://doctor-booking-admin.vercel.app'
 ];
 
+// Standard middleware handles everything (including OPTIONS)
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -32,11 +33,16 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Explicitly allow OPTIONS
+  allowedHeaders: ['Content-Type', 'Authorization', 'token'] // Ensure your custom headers are allowed
 }));
 
-// ✅ FIX: Modern Express way to handle OPTIONS without crashing
-app.options('/*', cors());
+// DO NOT ADD app.options('*') OR app.options('/:path*') HERE. 
+// They are causing the PathError crash.
+
+
+
 // 5. Security Middleware
 app.use(helmet({
     contentSecurityPolicy: false, 
