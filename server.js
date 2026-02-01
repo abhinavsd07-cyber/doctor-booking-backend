@@ -20,6 +20,7 @@ app.use(express.json());
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://localhost:5174',
+  'http://localhost:5175', // Often used for Admin locally
   'https://doctor-booking-frontend-virid.vercel.app',
   'https://doctor-booking-admin.vercel.app'
 ];
@@ -35,7 +36,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Explicitly allow OPTIONS
-  allowedHeaders: ['Content-Type', 'Authorization', 'token'] // Ensure your custom headers are allowed
+  allowedHeaders: ['Content-Type', 'Authorization', 'token','atoken'] // Ensure your custom headers are allowed
 }));
 
 // DO NOT ADD app.options('*') OR app.options('/:path*') HERE. 
