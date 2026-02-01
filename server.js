@@ -8,19 +8,15 @@ import doctorRouter from './routes/doctorRoute.js';
 import userRouter from "./routes/userRoute.js";
 import helmet from 'helmet';
 
-// 1. Initialize App and Port
 const app = express();
 const port = process.env.PORT || 4000;
 
-// 2. Connect to External Services
-connectDB(); // Ensure MONGO_URI is uppercase in your .env and connectDB file
+connectDB();
 connectCloudinary();
 
-// 3. Middlewares
 app.use(express.json());
 
-// 4. Optimized CORS for Deployment
-// In production, replace 'https://your-frontend.vercel.app' with your actual URL
+// 4. Corrected CORS Configuration
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://localhost:5174',
@@ -29,11 +25,8 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -42,15 +35,14 @@ app.use(cors({
   credentials: true
 }));
 
-// Add this right after to handle "preflight" (OPTIONS) requests
-app.options(/(.*)/, cors());
-
-// ... rest of your code ...
+// ✅ FIX: Modern Express way to handle OPTIONS without crashing
+app.options('*', cors()); 
 
 // 5. Security Middleware
 app.use(helmet({
     contentSecurityPolicy: false, 
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" } // Added for image loading
 }));
 
 // 6. API Routes
@@ -58,12 +50,10 @@ app.use("/api/admin", adminRouter);
 app.use('/api/doctor', doctorRouter);
 app.use("/api/user", userRouter);
 
-// 7. Health Check Route
 app.get("/", (req, res) => {
   res.send("Prescripto Backend running successfully 🚀");
 });
 
-// 8. Start Server
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
 });
