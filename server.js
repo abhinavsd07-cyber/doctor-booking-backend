@@ -36,7 +36,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Explicitly allow OPTIONS
-  allowedHeaders: ['Content-Type', 'Authorization', 'token','atoken'] // Ensure your custom headers are allowed
+  allowedHeaders: ['Content-Type', 'Authorization', 'token', 'atoken'] // Ensure your custom headers are allowed
 }));
 
 // DO NOT ADD app.options('*') OR app.options('/:path*') HERE. 
