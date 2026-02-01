@@ -20,7 +20,11 @@ const transporter = nodemailer.createTransport({
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    connectionTimeout: 5000 // 5 seconds timeout
+    connectionTimeout: 5000,
+    // Add this to prevent deployment blocks
+    tls: {
+        rejectUnauthorized: false
+    } // 5 seconds timeout
 });
 
 // --- HELPER FUNCTIONS ---
