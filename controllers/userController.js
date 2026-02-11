@@ -33,30 +33,31 @@ const createToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET);
 };
 
-// ✅ IMPROVED EMAIL FUNCTION: With detailed logging
 const sendConfirmationEmail = async (userData, docData, slotDate, slotTime) => {
   const mailOptions = {
-    from: `"Prescripto Support" <${process.env.EMAIL_USER}>`,
+    // 💡 Using exactly the ENV variable ensures Gmail recognizes the sender
+    from: process.env.EMAIL_USER, 
     to: userData.email,
     subject: "Appointment Confirmed! - Prescripto",
     html: `
-            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
-                <h2 style="color: #2563eb;">Appointment Confirmation</h2>
-                <p>Hello <b>${userData.name}</b>,</p>
-                <p>Your appointment has been successfully booked with:</p>
-                <p><b>Doctor:</b> Dr. ${docData.name}</p>
-                <p><b>Date:</b> ${slotDate.replaceAll("_", "/")}</p>
-                <p><b>Time:</b> ${slotTime}</p>
-                <br />
-                <p>Thank you for choosing Prescripto!</p>
-            </div>
-        `,
+        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
+            <h2 style="color: #2563eb;">Appointment Confirmation</h2>
+            <p>Hello <b>${userData.name}</b>,</p>
+            <p>Your appointment has been successfully booked with:</p>
+            <p><b>Doctor:</b> Dr. ${docData.name}</p>
+            <p><b>Date:</b> ${slotDate.replaceAll("_", "/")}</p>
+            <p><b>Time:</b> ${slotTime}</p>
+            <br />
+            <p>Thank you for choosing Prescripto!</p>
+        </div>
+    `,
   };
 
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log("✅ Email sent successfully: " + info.response);
   } catch (error) {
+    // 🔍 This log is your best friend. Check your Render logs for this specific line!
     console.error("❌ Email Error in Deployment:", error.message);
   }
 };
