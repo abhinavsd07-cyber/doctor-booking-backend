@@ -3,38 +3,36 @@ import nodemailer from 'nodemailer';
 export const sendBookingEmail = async (userEmail, docName, date, time) => {
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
-    port: 465, // ✅ Use 465 for SSL (more stable on Render)
-    secure: true, // ✅ Must be true for port 465
+    port: 465,         // ✅ CHANGE from 587 to 465
+    secure: true,      // ✅ CHANGE from false to true
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, 
+      pass: process.env.EMAIL_PASS, // Must be 16-character App Password
     },
-    // ✅ Add timeout settings to prevent the server from hanging
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
+    // Adding a connection timeout to prevent hanging
+    connectionTimeout: 10000, 
   });
 
   try {
     await transporter.sendMail({
-      from: `"Clinic Support" <${process.env.EMAIL_USER}>`, // Professional sender name
+      from: `"Clinic Support" <${process.env.EMAIL_USER}>`,
       to: userEmail,
       subject: "Appointment Confirmed!",
-      text: `Your appointment with Dr. ${docName} on ${date} at ${time} is confirmed.`,
       html: `
-        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
-          <h2 style="color: #5F6FFF;">Appointment Confirmed!</h2>
-          <p>Dear Patient, your booking is successful.</p>
-          <p><strong>Doctor:</strong> Dr. ${docName}</p>
-          <p><strong>Date:</strong> ${date}</p>
-          <p><strong>Time:</strong> ${time}</p>
-          <hr />
-          <p style="font-size: 12px; color: #888;">Thank you for using our clinic services.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+          <h2 style="color: #5F6FFF; text-align: center;">Booking Confirmed</h2>
+          <p>Your appointment with <strong>Dr. ${docName}</strong> is scheduled for:</p>
+          <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Date:</strong> ${date}</p>
+            <p><strong>Time:</strong> ${time}</p>
+          </div>
+          <p style="font-size: 12px; color: #777;">If you did not make this booking, please contact us immediately.</p>
         </div>
-      `, // Added HTML for that "industrial" look
+      `,
     });
-    console.log("✅ Email sent successfully to:", userEmail);
+    console.log("✅ Email sent to:", userEmail);
   } catch (error) {
-    console.error("❌ Email failed but process continuing:", error.message);
-    // We catch the error so the booking still works even if the email fails
+    // This logs the error so you can see it on Render, but doesn't crash the server
+    console.error("❌ Notification Error:", error.message);
   }
 };
