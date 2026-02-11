@@ -182,7 +182,7 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// ✅ API TO BOOK APPOINTMENT: Background email trigger
+// ✅ API TO BOOK APPOINTMENT: Immediate response + Background Email
 const bookAppointment = async (req, res) => {
   try {
     const { docId, slotDate, slotTime } = req.body;
@@ -217,11 +217,25 @@ const bookAppointment = async (req, res) => {
     await newAppointment.save();
     await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
-    // 🔥 Trigger Email (No 'await' so the frontend Success Toast is instant)
-     sendConfirmationEmail(userData, docData, slotDate, slotTime);
+    // --- KEY CHANGES START HERE ---
 
+    // 1. Send the response to the user IMMEDIATELY
     res.json({ success: true, message: "Appointment Booked Successfully" });
+
+    // 2. Trigger Email in the background AFTER the response
+    // We use .catch() to log errors without affecting the user
+    // Adding setImmediate ensures it doesn't block the current execution loop
+    setImmediate(async () => {
+        try {
+            await sendConfirmationEmail(userData, docData, slotDate, slotTime);
+        } catch (err) {
+            console.error("❌ Background Email Task Failed:", err.message);
+        }
+    });
+
   } catch (error) {
+    // This only catches errors that happen BEFORE the res.json
+    console.log(error);
     res.json({ success: false, message: error.message });
   }
 };
