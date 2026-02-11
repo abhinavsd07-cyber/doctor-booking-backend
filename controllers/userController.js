@@ -33,10 +33,11 @@ const createToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET);
 };
 
+// ✅ IMPROVED EMAIL FUNCTION: With detailed logging
 const sendConfirmationEmail = async (userData, docData, slotDate, slotTime) => {
   const mailOptions = {
     // 💡 Using exactly the ENV variable ensures Gmail recognizes the sender
-    from: process.env.EMAIL_USER, 
+    from: process.env.EMAIL_USER,
     to: userData.email,
     subject: "Appointment Confirmed! - Prescripto",
     html: `
@@ -163,7 +164,7 @@ const updateProfile = async (req, res) => {
     await userModel.findByIdAndUpdate(userId, {
       name,
       phone,
-      address: JSON.parse(address),
+      address: typeof address === "string" ? JSON.parse(address) : address,
       gender,
       dob,
     });
