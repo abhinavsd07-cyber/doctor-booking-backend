@@ -218,7 +218,7 @@ const bookAppointment = async (req, res) => {
     await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
     // 🔥 Trigger Email (No 'await' so the frontend Success Toast is instant)
-    sendConfirmationEmail(userData, docData, slotDate, slotTime);
+    await sendConfirmationEmail(userData, docData, slotDate, slotTime);
 
     res.json({ success: true, message: "Appointment Booked Successfully" });
   } catch (error) {
