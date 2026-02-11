@@ -161,36 +161,77 @@ export const allDoctors = async (req, res) => {
 // Function to change doctor availability
 // backend/controllers/adminController.js
 export const changeAvailability = async (req, res) => {
-    try {
-        const { docId } = req.body;
-        const docData = await doctorModel.findById(docId);
-        
-        // Flip the value: true -> false OR false -> true
-        await doctorModel.findByIdAndUpdate(docId, { available: !docData.available });
-        
-        res.json({ success: true, message: 'Availability Updated' });
-    } catch (error) {
-        res.json({ success: false, message: error.message });
-    }
-}
+  try {
+    const { docId } = req.body;
+    const docData = await doctorModel.findById(docId);
+
+    // Flip the value: true -> false OR false -> true
+    await doctorModel.findByIdAndUpdate(docId, {
+      available: !docData.available,
+    });
+
+    res.json({ success: true, message: "Availability Updated" });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
+  }
+};
 
 // i ==included latest appointments in dashboard data
+// ✅ PROFESSIONAL ADMIN DASHBOARD: Includes Data for Charts
 export const adminDashboard = async (req, res) => {
   try {
     const doctors = await doctorModel.find({});
     const users = await userModel.find({});
     const appointments = await appointmentModel.find({});
 
+    // 1. Calculate Total Earnings (Sum of all paid appointments)
+    const totalEarnings = appointments
+      .filter((item) => item.payment || item.isCompleted)
+      .reduce((acc, item) => acc + item.amount, 0);
+
+    // 2. Prepare Data for Specialty Doughnut Chart
+    // This counts how many doctors are in each category (Dermatologist, etc.)
+    const specialtyData = doctors.reduce((acc, doc) => {
+      acc[doc.speciality] = (acc[doc.speciality] || 0) + 1;
+      return acc;
+    }, {});
+
+    // 3. Prepare Data for Monthly Appointments Line Chart
+    // This groups appointments by month name for the graph
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const appointmentTrends = appointments.reduce((acc, app) => {
+      const monthIndex = new Date(app.date).getMonth();
+      const monthName = monthNames[monthIndex];
+      acc[monthName] = (acc[monthName] || 0) + 1;
+      return acc;
+    }, {});
+
     const dashData = {
       doctors: doctors.length,
       appointments: appointments.length,
       patients: users.length,
+      totalEarnings, // New: Shows revenue
+      specialtyData, // New: For the Pie/Doughnut Chart
+      appointmentTrends, // New: For the Line Chart
       latestAppointments: appointments.reverse().slice(0, 5),
     };
 
     res.json({ success: true, dashData });
   } catch (error) {
-    console.log(error);
+    console.error("Dashboard Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -198,36 +239,38 @@ export const adminDashboard = async (req, res) => {
 
 // API to get all appointments list for admin
 export const appointmentsAdmin = async (req, res) => {
-    try {
-        const appointments = await appointmentModel.find({});
-        res.json({ success: true, appointments });
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-}
+  try {
+    const appointments = await appointmentModel.find({});
+    res.json({ success: true, appointments });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
 // API for appointment cancellation (Admin Side)
 export const appointmentCancel = async (req, res) => {
-    try {
-        const { appointmentId } = req.body;
-        const appointmentData = await appointmentModel.findById(appointmentId);
+  try {
+    const { appointmentId } = req.body;
+    const appointmentData = await appointmentModel.findById(appointmentId);
 
-        // Release the doctor slot
-        const { docId, slotDate, slotTime } = appointmentData;
-        const docData = await doctorModel.findById(docId);
+    // Release the doctor slot
+    const { docId, slotDate, slotTime } = appointmentData;
+    const docData = await doctorModel.findById(docId);
 
-        let slots_booked = docData.slots_booked;
-        slots_booked[slotDate] = slots_booked[slotDate].filter(item => item !== slotTime);
+    let slots_booked = docData.slots_booked;
+    slots_booked[slotDate] = slots_booked[slotDate].filter(
+      (item) => item !== slotTime,
+    );
 
-        await doctorModel.findByIdAndUpdate(docId, { slots_booked });
-        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true });
+    await doctorModel.findByIdAndUpdate(docId, { slots_booked });
+    await appointmentModel.findByIdAndUpdate(appointmentId, {
+      cancelled: true,
+    });
 
-        res.json({ success: true, message: 'Appointment Cancelled' });
-
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-}
-
+    res.json({ success: true, message: "Appointment Cancelled" });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
