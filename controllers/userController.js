@@ -182,27 +182,85 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// ✅ API TO BOOK APPOINTMENT: Immediate response + Background Email
+// // ✅ API TO BOOK APPOINTMENT: Immediate response + Background Email
+// const bookAppointment = async (req, res) => {
+//   try {
+//     const { docId, slotDate, slotTime } = req.body;
+//     const userId = req.userId;
+
+//     const docData = await doctorModel.findById(docId).select("-password");
+//     if (!docData || !docData.available)
+//       return res.json({ success: false, message: "Doctor not available" });
+
+//     let slots_booked = docData.slots_booked || {};
+//     if (slots_booked[slotDate]) {
+//       if (slots_booked[slotDate].includes(slotTime))
+//         return res.json({ success: false, message: "Slot already booked" });
+//       slots_booked[slotDate].push(slotTime);
+//     } else {
+//       slots_booked[slotDate] = [slotTime];
+//     }
+
+//     const userData = await userModel.findById(userId).select("-password");
+//     const appointmentData = {
+//       userId,
+//       docId,
+//       userData,
+//       docData,
+//       amount: docData.fees,
+//       slotTime,
+//       slotDate,
+//       date: Date.now(),
+//     };
+
+//     const newAppointment = new appointmentModel(appointmentData);
+//     await newAppointment.save();
+//     await doctorModel.findByIdAndUpdate(docId, { slots_booked });
+
+//     // --- KEY CHANGES START HERE ---
+
+//     // 1. Send the response to the user IMMEDIATELY
+//     res.json({ success: true, message: "Appointment Booked Successfully" });
+
+//     // 2. Trigger Email in the background AFTER the response
+//     // We use .catch() to log errors without affecting the user
+//     // Adding setImmediate ensures it doesn't block the current execution loop
+//     setImmediate(async () => {
+//         try {
+//             await sendConfirmationEmail(userData, docData, slotDate, slotTime);
+//         } catch (err) {
+//             console.error("❌ Background Email Task Failed:", err.message);
+//         }
+//     });
+
+//   } catch (error) {
+//     // This only catches errors that happen BEFORE the res.json
+//     console.log(error);
+//     res.json({ success: false, message: error.message });
+//   }
+// };
+
+// ✅ API TO BOOK APPOINTMENT: Fast Parallel Execution
 const bookAppointment = async (req, res) => {
   try {
     const { docId, slotDate, slotTime } = req.body;
     const userId = req.userId;
 
+    // 1. Fetch data
     const docData = await doctorModel.findById(docId).select("-password");
-    if (!docData || !docData.available)
+    if (!docData || !docData.available) {
       return res.json({ success: false, message: "Doctor not available" });
-
-    let slots_booked = docData.slots_booked || {};
-    if (slots_booked[slotDate]) {
-      if (slots_booked[slotDate].includes(slotTime))
-        return res.json({ success: false, message: "Slot already booked" });
-      slots_booked[slotDate].push(slotTime);
-    } else {
-      slots_booked[slotDate] = [slotTime];
     }
 
+    // 2. Check slots
+    let slots_booked = docData.slots_booked || {};
+    if (slots_booked[slotDate]?.includes(slotTime)) {
+      return res.json({ success: false, message: "Slot already booked" });
+    }
+
+    // 3. Prepare Appointment Data
     const userData = await userModel.findById(userId).select("-password");
-    const appointmentData = {
+    const appointmentData = new appointmentModel({
       userId,
       docId,
       userData,
@@ -211,34 +269,29 @@ const bookAppointment = async (req, res) => {
       slotTime,
       slotDate,
       date: Date.now(),
-    };
-
-    const newAppointment = new appointmentModel(appointmentData);
-    await newAppointment.save();
-    await doctorModel.findByIdAndUpdate(docId, { slots_booked });
-
-    // --- KEY CHANGES START HERE ---
-
-    // 1. Send the response to the user IMMEDIATELY
-    res.json({ success: true, message: "Appointment Booked Successfully" });
-
-    // 2. Trigger Email in the background AFTER the response
-    // We use .catch() to log errors without affecting the user
-    // Adding setImmediate ensures it doesn't block the current execution loop
-    setImmediate(async () => {
-        try {
-            await sendConfirmationEmail(userData, docData, slotDate, slotTime);
-        } catch (err) {
-            console.error("❌ Background Email Task Failed:", err.message);
-        }
     });
 
+    // 4. THE PARALLEL TRICK: Execute DB and Email at the SAME TIME
+    // This is the fastest way to ensure the email sends without making the user wait twice.
+    
+    slots_booked[slotDate] = slots_booked[slotDate] ? [...slots_booked[slotDate], slotTime] : [slotTime];
+
+    await Promise.all([
+        appointmentData.save(), // Save to DB
+        doctorModel.findByIdAndUpdate(docId, { slots_booked }), // Update Slots
+        sendConfirmationEmail(userData, docData, slotDate, slotTime) // Send Email
+    ]);
+
+    // 5. Final Response (Sent after all 3 tasks finish)
+    res.json({ success: true, message: "Appointment Booked Successfully" });
+
   } catch (error) {
-    // This only catches errors that happen BEFORE the res.json
-    console.log(error);
+    console.error("Booking Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
+
+
 
 // API to list appointments
 const listAppointment = async (req, res) => {
