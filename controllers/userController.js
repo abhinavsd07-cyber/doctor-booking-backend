@@ -182,122 +182,66 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// const bookAppointment = async (req, res) => {
-//   try {
-//     const { docId, slotDate, slotTime } = req.body;
-//     const userId = req.userId;
-
-//     // 1. Basic Fetching (Keep this Await so we don't book a non-existent doctor)
-//     const docData = await doctorModel.findById(docId).select("-password");
-
-//     if (!docData || !docData.available) {
-//       return res.json({ success: false, message: "Doctor not available" });
-//     }
-
-//     // 2. Logic Check
-//     let slots_booked = docData.slots_booked || {};
-//     if (slots_booked[slotDate]?.includes(slotTime)) {
-//       return res.json({ success: false, message: "Slot already booked" });
-//     }
-
-//     // 3. Prepare Data
-//     const userData = await userModel.findById(userId).select("-password");
-
-//     slots_booked[slotDate] = slots_booked[slotDate]
-//       ? [...slots_booked[slotDate], slotTime]
-//       : [slotTime];
-
-//     const appointmentData = new appointmentModel({
-//       userId,
-//       docId,
-//       userData,
-//       docData,
-//       amount: docData.fees,
-//       slotTime,
-//       slotDate,
-//       date: Date.now(),
-//     });
-
-//     // --- SPEED TRICK STARTS HERE ---
-
-//     // 4. FIRE THE RESPONSE IMMEDIATELY 🚀
-//     // This triggers the Toast on your frontend right now!
-//     res.json({ success: true, message: "Appointment Booked Successfully" });
-
-//     // 5. DO ALL HEAVY LIFTING IN THE BACKGROUND
-//     // This runs while the user is already seeing the success toast.
-//     setImmediate(async () => {
-//       try {
-//         // Run DB saves and Email together in the background
-//         await Promise.all([
-//           appointmentData.save(),
-//           doctorModel.findByIdAndUpdate(docId, { slots_booked }),
-//           sendConfirmationEmail(userData, docData, slotDate, slotTime),
-//         ]);
-//         console.log("✅ Background tasks (DB + Email) completed.");
-//       } catch (err) {
-//         console.error("❌ Background Task Error:", err.message);
-//       }
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     // If headers haven't been sent yet, send the error
-//     if (!res.headersSent) {
-//       res.json({ success: false, message: error.message });
-//     }
-//   }
-// };
-
-
-
-
-// API to list appointments
-
-
 const bookAppointment = async (req, res) => {
   try {
     const { docId, slotDate, slotTime } = req.body;
     const userId = req.userId;
 
-    // 1. Fetch data in parallel to save time
-    const [docData, userData] = await Promise.all([
-      doctorModel.findById(docId).select("-password"),
-      userModel.findById(userId).select("-password")
-    ]);
+    // 1. Basic Fetching (Keep this Await so we don't book a non-existent doctor)
+    const docData = await doctorModel.findById(docId).select("-password");
 
     if (!docData || !docData.available) {
       return res.json({ success: false, message: "Doctor not available" });
     }
 
-    // 2. Validate Slot
+    // 2. Logic Check
     let slots_booked = docData.slots_booked || {};
     if (slots_booked[slotDate]?.includes(slotTime)) {
       return res.json({ success: false, message: "Slot already booked" });
     }
 
-    // 3. Prepare slot data
-    slots_booked[slotDate] = slots_booked[slotDate] ? [...slots_booked[slotDate], slotTime] : [slotTime];
+    // 3. Prepare Data
+    const userData = await userModel.findById(userId).select("-password");
+
+    slots_booked[slotDate] = slots_booked[slotDate]
+      ? [...slots_booked[slotDate], slotTime]
+      : [slotTime];
 
     const appointmentData = new appointmentModel({
-      userId, docId, userData, docData,
-      amount: docData.fees, slotTime, slotDate, date: Date.now(),
+      userId,
+      docId,
+      userData,
+      docData,
+      amount: docData.fees,
+      slotTime,
+      slotDate,
+      date: Date.now(),
     });
 
-    // 4. THE CRITICAL STEP 🚀
-    // We MUST await these. If we don't await the email, Render kills the process
-    // before the email actually hits the network. 
-    await appointmentData.save();
-    await doctorModel.findByIdAndUpdate(docId, { slots_booked });
-    
-    // We await the email last to ensure everything else is saved first
-    console.log("Attempting to send email...");
-    await sendConfirmationEmail(userData, docData, slotDate, slotTime);
+    // --- SPEED TRICK STARTS HERE ---
 
-    // 5. Final Success Response
+    // 4. FIRE THE RESPONSE IMMEDIATELY 🚀
+    // This triggers the Toast on your frontend right now!
     res.json({ success: true, message: "Appointment Booked Successfully" });
 
+    // 5. DO ALL HEAVY LIFTING IN THE BACKGROUND
+    // This runs while the user is already seeing the success toast.
+    setImmediate(async () => {
+      try {
+        // Run DB saves and Email together in the background
+        await Promise.all([
+          appointmentData.save(),
+          doctorModel.findByIdAndUpdate(docId, { slots_booked }),
+          sendConfirmationEmail(userData, docData, slotDate, slotTime),
+        ]);
+        console.log("✅ Background tasks (DB + Email) completed.");
+      } catch (err) {
+        console.error("❌ Background Task Error:", err.message);
+      }
+    });
   } catch (error) {
-    console.error("❌ Booking/Email Error:", error.message);
+    console.log(error);
+    // If headers haven't been sent yet, send the error
     if (!res.headersSent) {
       res.json({ success: false, message: error.message });
     }
@@ -306,6 +250,8 @@ const bookAppointment = async (req, res) => {
 
 
 
+
+// API to list appointments
 const listAppointment = async (req, res) => {
   try {
     const userId = req.userId;
