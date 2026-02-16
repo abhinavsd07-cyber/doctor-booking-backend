@@ -259,7 +259,7 @@ const bookAppointment = async (req, res) => {
     const { docId, slotDate, slotTime } = req.body;
     const userId = req.userId;
 
-    // 1. Fetch Doctor and User Data (Essential awaits)
+    // 1. Fetch data in parallel to save time
     const [docData, userData] = await Promise.all([
       doctorModel.findById(docId).select("-password"),
       userModel.findById(userId).select("-password")
@@ -269,13 +269,13 @@ const bookAppointment = async (req, res) => {
       return res.json({ success: false, message: "Doctor not available" });
     }
 
-    // 2. Logic Check
+    // 2. Validate Slot
     let slots_booked = docData.slots_booked || {};
     if (slots_booked[slotDate]?.includes(slotTime)) {
       return res.json({ success: false, message: "Slot already booked" });
     }
 
-    // 3. Prepare Appointment
+    // 3. Prepare slot data
     slots_booked[slotDate] = slots_booked[slotDate] ? [...slots_booked[slotDate], slotTime] : [slotTime];
 
     const appointmentData = new appointmentModel({
@@ -283,20 +283,21 @@ const bookAppointment = async (req, res) => {
       amount: docData.fees, slotTime, slotDate, date: Date.now(),
     });
 
-    // 4. THE PARALLEL POWER-UP 🚀
-    // We await this so the server stays alive, but it runs EVERYTHING at once.
-    // This is the only way to guarantee the email sends on Render/Vercel.
-    await Promise.all([
-      appointmentData.save(),
-      doctorModel.findByIdAndUpdate(docId, { slots_booked }),
-      sendConfirmationEmail(userData, docData, slotDate, slotTime)
-    ]);
+    // 4. THE CRITICAL STEP 🚀
+    // We MUST await these. If we don't await the email, Render kills the process
+    // before the email actually hits the network. 
+    await appointmentData.save();
+    await doctorModel.findByIdAndUpdate(docId, { slots_booked });
+    
+    // We await the email last to ensure everything else is saved first
+    console.log("Attempting to send email...");
+    await sendConfirmationEmail(userData, docData, slotDate, slotTime);
 
-    // 5. SUCCESS RESPONSE
+    // 5. Final Success Response
     res.json({ success: true, message: "Appointment Booked Successfully" });
 
   } catch (error) {
-    console.error("Booking Error:", error);
+    console.error("❌ Booking/Email Error:", error.message);
     if (!res.headersSent) {
       res.json({ success: false, message: error.message });
     }
