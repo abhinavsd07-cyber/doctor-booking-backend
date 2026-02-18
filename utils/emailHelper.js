@@ -1,15 +1,13 @@
 import nodemailer from 'nodemailer';
 
-// 1. Create a persistent transporter POOL outside the function
-// This stays active so you don't have to reconnect every time
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
-    pool: true,          // ✅ Keep connection alive for multiple emails
+    pool: true,
     maxMessages: Infinity,
-    maxConnections: 5,   // ✅ Handle multiple bookings at once
+    maxConnections: 5,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -19,9 +17,7 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-export const sendBookingEmail = async (userEmail, docName, date, time) => {
-    // 2. Professional HTML Template with a dynamic timestamp
-    // Making each email unique prevents Gmail from "threading" or blocking them
+export const sendConfirmationEmail = async (userEmail, docName, date, time) => {
     const mailOptions = {
         from: `"Clinic Management" <${process.env.EMAIL_USER}>`,
         to: userEmail,
@@ -39,12 +35,11 @@ export const sendBookingEmail = async (userEmail, docName, date, time) => {
     };
 
     try {
-        // 3. Execute the send
         await transporter.sendMail(mailOptions);
         console.log(`✅ Email sent successfully to: ${userEmail}`);
         return true;
     } catch (error) {
-        console.error("❌ Email repeat error:", error.message);
+        console.error("❌ Email error:", error.message);
         return false;
     }
 };

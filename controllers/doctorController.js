@@ -2,8 +2,9 @@ import doctorModel from "../models/doctorModel.js"
 import appointmentModel from "../models/appointmentModel.js";
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+import { sendConfirmationEmail } from "../utils/emailHelper.js"
 
-// Doctor Login
+// API for doctor login
 export const loginDoctor = async (req, res) => {
     try {
         const { email, password } = req.body
@@ -35,7 +36,8 @@ export const doctorDashboard = async (req, res) => {
 
         let earnings = 0;
 
-        appointments.map((item) => {
+        // Use forEach for calculations
+        appointments.forEach((item) => {
             if (item.isCompleted || item.payment) {
                 earnings += item.amount;
             }
@@ -55,7 +57,7 @@ export const doctorDashboard = async (req, res) => {
     }
 }
 
-// Mark Appointment as Completed
+// Mark Appointment as Completed and Notify User
 export const appointmentComplete = async (req, res) => {
     try {
         const { appointmentId } = req.body;
@@ -63,14 +65,26 @@ export const appointmentComplete = async (req, res) => {
 
         const appointmentData = await appointmentModel.findById(appointmentId);
 
-        // FIX: Compare IDs as strings to avoid Type mismatch errors
         if (appointmentData && appointmentData.docId.toString() === docId) {
+            
             await appointmentModel.findByIdAndUpdate(appointmentId, { isCompleted: true });
-            return res.json({ success: true, message: 'Appointment Completed' });
+
+            // Trigger Email Notification using our Helper
+            const { userData, docData, slotDate, slotTime } = appointmentData;
+            
+            await sendConfirmationEmail(
+                userData, // The helper expects userData object
+                docData, 
+                slotDate, 
+                slotTime
+            );
+
+            return res.json({ success: true, message: 'Appointment Completed & Email Sent' });
         }
 
         res.json({ success: false, message: 'Mark Failed: Unauthorized' });
     } catch (error) {
+        console.log(error);
         res.json({ success: false, message: error.message });
     }
 }
@@ -83,13 +97,13 @@ export const appointmentCancel = async (req, res) => {
 
         const appointmentData = await appointmentModel.findById(appointmentId);
 
-        // FIX: Compare IDs as strings
         if (appointmentData && appointmentData.docId.toString() === docId) {
             await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true });
 
             // Release the slot
             const { slotDate, slotTime } = appointmentData;
             const docData = await doctorModel.findById(docId);
+            
             let slots_booked = docData.slots_booked;
             slots_booked[slotDate] = slots_booked[slotDate].filter(item => item !== slotTime);
 

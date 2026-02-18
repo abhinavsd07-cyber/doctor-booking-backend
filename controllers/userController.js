@@ -1,7 +1,6 @@
 import validator from "validator";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import userModel from "../models/userModel.js";
@@ -13,54 +12,9 @@ import Stripe from "stripe";
 const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// ✅ OPTIMIZED TRANSPORTER: Explicitly set for Cloud Deployments
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // Use SSL for port 465
-  pool: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // 16-digit App Password
-  },
-  tls: {
-    rejectUnauthorized: false, // Prevents block by Render/Vercel firewalls
-  },
-});
-
 // --- HELPER FUNCTIONS ---
 const createToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET);
-};
-
-// ✅ IMPROVED EMAIL FUNCTION: With detailed logging
-const sendConfirmationEmail = async (userData, docData, slotDate, slotTime) => {
-  const mailOptions = {
-    // 💡 Using exactly the ENV variable ensures Gmail recognizes the sender
-    from: process.env.EMAIL_USER,
-    to: userData.email,
-    subject: "Appointment Confirmed! - Prescripto",
-    html: `
-        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
-            <h2 style="color: #2563eb;">Appointment Confirmation</h2>
-            <p>Hello <b>${userData.name}</b>,</p>
-            <p>Your appointment has been successfully booked with:</p>
-            <p><b>Doctor:</b> Dr. ${docData.name}</p>
-            <p><b>Date:</b> ${slotDate.replaceAll("_", "/")}</p>
-            <p><b>Time:</b> ${slotTime}</p>
-            <br />
-            <p>Thank you for choosing Prescripto!</p>
-        </div>
-    `,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent successfully: " + info.response);
-  } catch (error) {
-    // 🔍 This log is your best friend. Check your Render logs for this specific line!
-    console.error("❌ Email Error in Deployment:", error.message);
-  }
 };
 
 // --- CONTROLLERS ---
@@ -182,25 +136,23 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// ✅ FINAL OPTIMIZED BOOKING (No Email Lag)
 const bookAppointment = async (req, res) => {
   try {
     const { docId, slotDate, slotTime } = req.body;
     const userId = req.userId;
 
-    // 1. Basic Fetching (Keep this Await so we don't book a non-existent doctor)
     const docData = await doctorModel.findById(docId).select("-password");
 
     if (!docData || !docData.available) {
       return res.json({ success: false, message: "Doctor not available" });
     }
 
-    // 2. Logic Check
     let slots_booked = docData.slots_booked || {};
     if (slots_booked[slotDate]?.includes(slotTime)) {
       return res.json({ success: false, message: "Slot already booked" });
     }
 
-    // 3. Prepare Data
     const userData = await userModel.findById(userId).select("-password");
 
     slots_booked[slotDate] = slots_booked[slotDate]
@@ -218,38 +170,19 @@ const bookAppointment = async (req, res) => {
       date: Date.now(),
     });
 
-    // --- SPEED TRICK STARTS HERE ---
+    // Save to lock the slot immediately
+    await appointmentData.save();
+    await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
-    // 4. FIRE THE RESPONSE IMMEDIATELY 🚀
-    // This triggers the Toast on your frontend right now!
-    res.json({ success: true, message: "Appointment Booked Successfully" });
+    res.json({ success: true, message: "Appointment Requested Successfully" });
 
-    // 5. DO ALL HEAVY LIFTING IN THE BACKGROUND
-    // This runs while the user is already seeing the success toast.
-    setImmediate(async () => {
-      try {
-        // Run DB saves and Email together in the background
-        await Promise.all([
-          appointmentData.save(),
-          doctorModel.findByIdAndUpdate(docId, { slots_booked }),
-          sendConfirmationEmail(userData, docData, slotDate, slotTime),
-        ]);
-        console.log("✅ Background tasks (DB + Email) completed.");
-      } catch (err) {
-        console.error("❌ Background Task Error:", err.message);
-      }
-    });
   } catch (error) {
     console.log(error);
-    // If headers haven't been sent yet, send the error
     if (!res.headersSent) {
       res.json({ success: false, message: error.message });
     }
   }
 };
-
-
-
 
 // API to list appointments
 const listAppointment = async (req, res) => {
