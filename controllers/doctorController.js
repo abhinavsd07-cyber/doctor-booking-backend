@@ -60,8 +60,6 @@ export const doctorDashboard = async (req, res) => {
 
 // server/controllers/doctorController.js
 
-// server/controllers/doctorController.js
-
 export const appointmentComplete = async (req, res) => {
     try {
         const { appointmentId } = req.body;
@@ -71,25 +69,24 @@ export const appointmentComplete = async (req, res) => {
 
         if (appointmentData && appointmentData.docId.toString() === docId) {
             
-            // 1. Update Database (Happens in milliseconds)
+            // 1. Update Database (Very fast)
             await appointmentModel.findByIdAndUpdate(appointmentId, { isCompleted: true });
 
-            // 2. SEND THE RESPONSE IMMEDIATELY
-            // This is the magic step. The toast will appear NOW.
+            // 2. SEND THE JSON RESPONSE IMMEDIATELY 🚀
+            // This is what makes the TOAST appear and the UI refresh instantly
             res.json({ success: true, message: 'Appointment Completed' });
 
-            // 3. FIRE THE EMAIL IN THE BACKGROUND
-            // Notice there is NO 'await' here. 
-            // The server won't wait for Gmail to finish before talking to the frontend.
+            // 3. TRIGGER EMAIL WITHOUT 'AWAIT'
+            // The server does not wait for Gmail to finish before talking to the frontend
             const { userData, docData, slotDate, slotTime } = appointmentData;
             
             sendConfirmationEmail(userData, docData, slotDate, slotTime)
-                .catch(err => console.error("Email delayed in background:", err.message));
+                .catch(err => console.error("Background Email Error:", err.message));
 
             return; 
         }
 
-        res.json({ success: false, message: 'Unauthorized' });
+        res.json({ success: false, message: 'Unauthorized action' });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
