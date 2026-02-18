@@ -17,7 +17,13 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-export const sendConfirmationEmail = async (userEmail, docName, date, time) => {
+// FIXED: Accepting the objects passed from the controller
+export const sendConfirmationEmail = async (userData, docData, date, time) => {
+    
+    // Extract the actual email string and doctor name from the objects
+    const userEmail = userData.email; 
+    const docName = docData.name;
+
     const mailOptions = {
         from: `"Clinic Management" <${process.env.EMAIL_USER}>`,
         to: userEmail,
@@ -25,6 +31,7 @@ export const sendConfirmationEmail = async (userEmail, docName, date, time) => {
         html: `
             <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
                 <h2 style="color: #5F6FFF;">Booking Confirmation</h2>
+                <p>Hello <strong>${userData.name}</strong>,</p>
                 <p>Your appointment has been successfully scheduled.</p>
                 <p><strong>Doctor:</strong> Dr. ${docName}</p>
                 <p><strong>Date:</strong> ${date}</p>
@@ -39,6 +46,7 @@ export const sendConfirmationEmail = async (userEmail, docName, date, time) => {
         console.log(`✅ Email sent successfully to: ${userEmail}`);
         return true;
     } catch (error) {
+        // Log the error but don't let it crash the main thread
         console.error("❌ Email error:", error.message);
         return false;
     }

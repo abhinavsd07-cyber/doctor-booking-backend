@@ -57,7 +57,11 @@ export const doctorDashboard = async (req, res) => {
     }
 }
 
-// Mark Appointment as Completed and Notify User
+
+// server/controllers/doctorController.js
+
+// server/controllers/doctorController.js
+
 export const appointmentComplete = async (req, res) => {
     try {
         const { appointmentId } = req.body;
@@ -67,22 +71,25 @@ export const appointmentComplete = async (req, res) => {
 
         if (appointmentData && appointmentData.docId.toString() === docId) {
             
+            // 1. Update Database (Happens in milliseconds)
             await appointmentModel.findByIdAndUpdate(appointmentId, { isCompleted: true });
 
-            // Trigger Email Notification using our Helper
+            // 2. SEND THE RESPONSE IMMEDIATELY
+            // This is the magic step. The toast will appear NOW.
+            res.json({ success: true, message: 'Appointment Completed' });
+
+            // 3. FIRE THE EMAIL IN THE BACKGROUND
+            // Notice there is NO 'await' here. 
+            // The server won't wait for Gmail to finish before talking to the frontend.
             const { userData, docData, slotDate, slotTime } = appointmentData;
             
-            await sendConfirmationEmail(
-                userData, // The helper expects userData object
-                docData, 
-                slotDate, 
-                slotTime
-            );
+            sendConfirmationEmail(userData, docData, slotDate, slotTime)
+                .catch(err => console.error("Email delayed in background:", err.message));
 
-            return res.json({ success: true, message: 'Appointment Completed & Email Sent' });
+            return; 
         }
 
-        res.json({ success: false, message: 'Mark Failed: Unauthorized' });
+        res.json({ success: false, message: 'Unauthorized' });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
